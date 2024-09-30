@@ -405,27 +405,21 @@ public:
         std::cout << "p_y: " << p_y << std::endl;
         std::cout << "p_z: " << p_z << std::endl;
 
-//        if (transformToLocal[0] != transformToLocalOld[0] ||
-//            transformToLocal[1] != transformToLocalOld[1] ||
-//            transformToLocal[2] != transformToLocalOld[2]) {
-//          transformToLocalOld[0] = transformToLocal[0];
-//          transformToLocalOld[1] = transformToLocal[1];
-//          transformToLocalOld[2] = transformToLocal[2];
-//          resetOptimization();
-//          key = 1;
-//          return;
-//        }
+        if (transformToLocal[0] != transformToLocalOld[0] ||
+            transformToLocal[1] != transformToLocalOld[1] ||
+            transformToLocal[2] != transformToLocalOld[2]) {
+          transformToLocalOld[0] = transformToLocal[0];
+          transformToLocalOld[1] = transformToLocal[1];
+          transformToLocalOld[2] = transformToLocal[2];
+          resetOptimization();
+          key = 1;
+          return;
+        }
 
 
         // 0. initialize system
-        if (systemInitialized == false ||
-            transformToLocal[0] != transformToLocalOld[0] ||
-            transformToLocal[1] != transformToLocalOld[1] ||
-            transformToLocal[2] != transformToLocalOld[2])
+        if (systemInitialized == false)
         {
-            transformToLocalOld[0] = transformToLocal[0];
-            transformToLocalOld[1] = transformToLocal[1];
-            transformToLocalOld[2] = transformToLocal[2];
             resetOptimization();
 
             // pop old IMU message
@@ -619,7 +613,7 @@ public:
         imu_.orientation_covariance = imu_raw->orientation_covariance;
 
         imu_.orientation.x = imu_raw->orientation.x;
-        imu_.orientation.y = imu_raw->orientation.x;
+        imu_.orientation.y = imu_raw->orientation.y;
         imu_.orientation.z = imu_raw->orientation.z;
         imu_.orientation.w = imu_raw->orientation.w;
 

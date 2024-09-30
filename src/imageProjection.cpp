@@ -191,7 +191,7 @@ public:
       imu_.orientation_covariance = imuMsg->orientation_covariance;
 
       imu_.orientation.x = imuMsg->orientation.x;
-      imu_.orientation.y = imuMsg->orientation.x;
+      imu_.orientation.y = imuMsg->orientation.y;
       imu_.orientation.z = imuMsg->orientation.z;
       imu_.orientation.w = imuMsg->orientation.w;
 
