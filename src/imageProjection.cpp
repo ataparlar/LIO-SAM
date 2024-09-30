@@ -1,18 +1,27 @@
 #include "utility.hpp"
 #include "lio_sam/msg/cloud_info.hpp"
 
+#include <sensor_msgs/point_cloud2_iterator.hpp>
+
+
 struct VelodynePointXYZIRT
 {
-    PCL_ADD_POINT4D
-    PCL_ADD_INTENSITY;
-    uint16_t ring;
-    float time;
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  PCL_ADD_POINT4D
+  PCL_ADD_INTENSITY
+  uint8_t return_type;
+  uint16_t channel;
+  float azimuth;
+  float elevation;
+  float distance;
+  uint16_t time_stamp;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 } EIGEN_ALIGN16;
-POINT_CLOUD_REGISTER_POINT_STRUCT (VelodynePointXYZIRT,
-    (float, x, x) (float, y, y) (float, z, z) (float, intensity, intensity)
-    (uint16_t, ring, ring) (float, time, time)
-)
+POINT_CLOUD_REGISTER_POINT_STRUCT(
+    VelodynePointXYZIRT,
+    (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)(
+        uint16_t, return_type, return_type)(uint16_t, channel, channel)(float, azimuth, azimuth)(
+        float, elevation, elevation)(float, distance, distance)(uint16_t, time_stamp, time_stamp))
+
 
 struct OusterPointXYZIRT {
     PCL_ADD_POINT4D;
@@ -175,7 +184,27 @@ public:
 
     void imuHandler(const sensor_msgs::msg::Imu::SharedPtr imuMsg)
     {
-        sensor_msgs::msg::Imu thisImu = imuConverter(*imuMsg);
+      sensor_msgs::msg::Imu imu_;
+      imu_.header = imuMsg->header;
+      imu_.linear_acceleration_covariance = imuMsg->linear_acceleration_covariance;
+      imu_.angular_velocity_covariance = imuMsg->angular_velocity_covariance;
+      imu_.orientation_covariance = imuMsg->orientation_covariance;
+
+      imu_.orientation.x = imuMsg->orientation.x;
+      imu_.orientation.y = imuMsg->orientation.x;
+      imu_.orientation.z = imuMsg->orientation.z;
+      imu_.orientation.w = imuMsg->orientation.w;
+
+      imu_.linear_acceleration.x = imuMsg->linear_acceleration.x;
+      imu_.linear_acceleration.y = -imuMsg->linear_acceleration.y;
+      imu_.linear_acceleration.z = -imuMsg->linear_acceleration.z;
+
+      imu_.angular_velocity.x = imuMsg->angular_velocity.x;
+      imu_.angular_velocity.y = -imuMsg->angular_velocity.y;
+      imu_.angular_velocity.z = -imuMsg->angular_velocity.z;
+
+      sensor_msgs::msg::Imu thisImu = imuConverter(imu_);
+      //        sensor_msgs::msg::Imu thisImu = imuConverter(*imu_raw);
 
         std::lock_guard<std::mutex> lock1(imuLock);
         imuQueue.push_back(thisImu);
@@ -249,8 +278,8 @@ public:
                 dst.y = src.y;
                 dst.z = src.z;
                 dst.intensity = src.intensity;
-                dst.ring = src.ring;
-                dst.time = src.t * 1e-9f;
+                dst.channel = src.ring;
+                dst.time_stamp = src.t * 1e-9f;
             }
         }
         else
@@ -259,11 +288,21 @@ public:
             rclcpp::shutdown();
         }
 
+        // Iterator for the time field (assumed uint16_t)
+        sensor_msgs::PointCloud2ConstIterator<uint16_t> iter_time(*laserCloudMsg, "time_stamp");
+        std::vector<uint16_t> time_vec;
+        for (size_t i = 0; i < laserCloudMsg->width * laserCloudMsg->height; ++i, ++iter_time)
+          time_vec.push_back(*iter_time);
+
         // get timestamp
         cloudHeader = currentCloudMsg.header;
         timeScanCur = stamp2Sec(cloudHeader.stamp);
-        timeScanEnd = timeScanCur + laserCloudIn->points.back().time;
-    
+        timeScanEnd = timeScanCur + stamp2Sec(time_vec.back());
+
+//        std::cout << "laserCloudIn->points.back().time_stamp: " << time_vec.back() << std::endl;
+//        std::cout << "timeScanCur: " << std::setprecision(16) << timeScanCur << std::endl;
+//        std::cout << "timeScanEnd: " << std::setprecision(16) << timeScanEnd << std::endl;
+
         // remove Nan
         vector<int> indices;
         pcl::removeNaNFromPointCloud(*laserCloudIn, *laserCloudIn, indices);
@@ -277,12 +316,13 @@ public:
 
         // check ring channel
         // we will skip the ring check in case of velodyne - as we calculate the ring value downstream (line 572)
+
         if (ringFlag == 0)
         {
             ringFlag = -1;
             for (int i = 0; i < (int)currentCloudMsg.fields.size(); ++i)
             {
-                if (currentCloudMsg.fields[i].name == "ring")
+              if (currentCloudMsg.fields[i].name == "channel")
                 {
                     ringFlag = 1;
                     break;
@@ -305,7 +345,7 @@ public:
             deskewFlag = -1;
             for (auto &field : currentCloudMsg.fields)
             {
-                if (field.name == "time" || field.name == "t")
+                if (field.name == "time_stamp" || field.name == "t")
                 {
                     deskewFlag = 1;
                     break;
@@ -325,7 +365,8 @@ public:
 
         // make sure IMU data available for the scan
         if (imuQueue.empty() ||
-            stamp2Sec(imuQueue.front().header.stamp) > timeScanCur ||
+            stamp2Sec(imuQueue.front().header.stamp) > timeScanCur
+            ||
             stamp2Sec(imuQueue.back().header.stamp) < timeScanEnd)
         {
             RCLCPP_INFO(get_logger(), "Waiting for IMU data ...");
@@ -512,14 +553,24 @@ public:
 
         // If the sensor moves relatively slow, like walking speed, positional deskew seems to have little benefits. Thus code below is commented.
 
-        // if (cloudInfo.odomAvailable == false || odomDeskewFlag == false)
-        //     return;
+         if (cloudInfo.odom_available == false || odomDeskewFlag == false)
+             return;
 
-        // float ratio = relTime / (timeScanEnd - timeScanCur);
+         float ratio = relTime / (timeScanEnd - timeScanCur);
 
-        // *posXCur = ratio * odomIncreX;
-        // *posYCur = ratio * odomIncreY;
-        // *posZCur = ratio * odomIncreZ;
+         *posXCur = ratio * odomIncreX;
+         *posYCur = ratio * odomIncreY;
+         *posZCur = ratio * odomIncreZ;
+
+//         std::cout << "\n(timeScanEnd - timeScanCur): " << std::setprecision(20) << (timeScanEnd - timeScanCur) << std::endl;
+//         std::cout << "odomIncreX: " << std::setprecision(20) << odomIncreX << std::endl;
+//         std::cout << "odomIncreY: " << std::setprecision(20) << odomIncreY << std::endl;
+//         std::cout << "odomIncreZ: " << std::setprecision(20) << odomIncreZ << std::endl;
+//         std::cout << "relTime: " << std::setprecision(20) << relTime << std::endl;
+//         std::cout << "ratio: " << ratio << std::endl;
+//         std::cout << "posXCur: " << std::setprecision(20) << *posXCur << std::endl;
+//         std::cout << "posYCur: " << std::setprecision(20) << *posYCur << std::endl;
+//         std::cout << "posZCur: " << std::setprecision(20) << *posZCur << std::endl;
     }
 
     PointType deskewPoint(PointType *point, double relTime)
@@ -570,7 +621,7 @@ public:
             if (range < lidarMinRange || range > lidarMaxRange)
                 continue;
 
-            int rowIdn = laserCloudIn->points[i].ring;
+            int rowIdn = laserCloudIn->points[i].channel;
             // if sensor is a velodyne (ringFlag = 2) calculate rowIdn based on number of scans
             if (ringFlag == 2) { 
                 float verticalAngle =
@@ -608,7 +659,7 @@ public:
             if (rangeMat.at<float>(rowIdn, columnIdn) != FLT_MAX)
                 continue;
 
-            thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].time);
+            thisPoint = deskewPoint(&thisPoint, laserCloudIn->points[i].time_stamp);
 
             rangeMat.at<float>(rowIdn, columnIdn) = range;
 

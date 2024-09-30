@@ -13,6 +13,7 @@
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/inference/Symbol.h>
 
+
 #include <gtsam/nonlinear/ISAM2.h>
 #include <gtsam_unstable/nonlinear/IncrementalFixedLagSmoother.h>
 
@@ -35,6 +36,7 @@ public:
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pubImuPath;
 
     Eigen::Isometry3d lidarOdomAffine;
+    Eigen::Isometry3d lidarOdomAffineFirst;
     Eigen::Isometry3d imuOdomAffineFront;
     Eigen::Isometry3d imuOdomAffineBack;
 
@@ -42,6 +44,11 @@ public:
     std::shared_ptr<tf2_ros::TransformBroadcaster> tfBroadcaster;
     std::shared_ptr<tf2_ros::TransformListener> tfListener;
     tf2::Stamped<tf2::Transform> lidar2Baselink;
+
+    double transformToLocal[3] = {66459, 43620, 42.75};
+    bool localTransformFlag = false;
+
+    bool first_lidar_frame_flag = true;
 
     double lidarOdomTime = -1;
     deque<nav_msgs::msg::Odometry> imuOdomQueue;
@@ -85,18 +92,56 @@ public:
 
     void lidarOdometryHandler(const nav_msgs::msg::Odometry::SharedPtr odomMsg)
     {
-        std::lock_guard<std::mutex> lock(mtx);
+//        std::lock_guard<std::mutex> lock(mtx);
 
-        lidarOdomAffine = odom2affine(*odomMsg);
+        if (first_lidar_frame_flag) {
+          lidarOdomAffineFirst = odom2affine(*odomMsg);
+          first_lidar_frame_flag = false;
+        }
+
+        double position_difference = std::sqrt(
+            std::pow(odomMsg->pose.pose.position.x - transformToLocal[0], 2) +
+            std::pow(odomMsg->pose.pose.position.y - transformToLocal[1], 2) +
+            std::pow(odomMsg->pose.pose.position.z - transformToLocal[2], 2));
+
+        if (position_difference > 25) {
+          transformToLocal[0] = odomMsg->pose.pose.position.x;
+          transformToLocal[1] = odomMsg->pose.pose.position.y;
+          transformToLocal[2] = odomMsg->pose.pose.position.z;
+        }
+
+        auto odomLocal = odomMsg;
+        odomLocal->pose.pose.position.x = odomMsg->pose.pose.position.x - transformToLocal[0];
+        odomLocal->pose.pose.position.y = odomMsg->pose.pose.position.y - transformToLocal[1];
+        odomLocal->pose.pose.position.z = odomMsg->pose.pose.position.z - transformToLocal[2];
+
+        lidarOdomAffine = odom2affine(*odomLocal);
 
         lidarOdomTime = stamp2Sec(odomMsg->header.stamp);
     }
 
     void imuOdometryHandler(const nav_msgs::msg::Odometry::SharedPtr odomMsg)
     {
-        std::lock_guard<std::mutex> lock(mtx);
+//        std::lock_guard<std::mutex> lock(mtx);
 
-        imuOdomQueue.push_back(*odomMsg);
+        double position_difference = std::sqrt(
+          std::pow(odomMsg->pose.pose.position.x - transformToLocal[0], 2) +
+          std::pow(odomMsg->pose.pose.position.y - transformToLocal[1], 2) +
+          std::pow(odomMsg->pose.pose.position.z - transformToLocal[2], 2));
+
+        if (position_difference > 25) {
+          transformToLocal[0] = odomMsg->pose.pose.position.x;
+          transformToLocal[1] = odomMsg->pose.pose.position.y;
+          transformToLocal[2] = odomMsg->pose.pose.position.z;
+        }
+
+
+        auto odomLocal = odomMsg;
+        odomLocal->pose.pose.position.x = odomMsg->pose.pose.position.x - transformToLocal[0];
+        odomLocal->pose.pose.position.y = odomMsg->pose.pose.position.y - transformToLocal[1];
+        odomLocal->pose.pose.position.z = odomMsg->pose.pose.position.z - transformToLocal[2];
+
+        imuOdomQueue.push_back(*odomLocal);
 
         // get latest odometry (at current IMU stamp)
         if (lidarOdomTime == -1)
@@ -108,29 +153,43 @@ public:
             else
                 break;
         }
+
         Eigen::Isometry3d imuOdomAffineFront = odom2affine(imuOdomQueue.front());
         Eigen::Isometry3d imuOdomAffineBack = odom2affine(imuOdomQueue.back());
         Eigen::Isometry3d imuOdomAffineIncre = imuOdomAffineFront.inverse() * imuOdomAffineBack;
         Eigen::Isometry3d imuOdomAffineLast = lidarOdomAffine * imuOdomAffineIncre;
         auto t = tf2::eigenToTransform(imuOdomAffineLast);
+
+        // IT IS 0. MUSTN'T BE
+        std::cout << "\nimuOdomQueue.back().x: " << imuOdomQueue.back().pose.pose.position.x << std::endl;
+        std::cout << "imuOdomQueue.back().y: " << imuOdomQueue.back().pose.pose.position.y << std::endl;
+        std::cout << "imuOdomQueue.back().z: " << imuOdomQueue.back().pose.pose.position.z << std::endl;
+
+
         tf2::Stamped<tf2::Transform> tCur;
         tf2::convert(t, tCur);
 
         // publish latest odometry
         nav_msgs::msg::Odometry laserOdometry = imuOdomQueue.back();
-        laserOdometry.pose.pose.position.x = t.transform.translation.x;
-        laserOdometry.pose.pose.position.y = t.transform.translation.y;
-        laserOdometry.pose.pose.position.z = t.transform.translation.z;
+        laserOdometry.pose.pose.position.x = t.transform.translation.x + transformToLocal[0];
+        laserOdometry.pose.pose.position.y = t.transform.translation.y + transformToLocal[1];
+        laserOdometry.pose.pose.position.z = t.transform.translation.z + transformToLocal[2];
         laserOdometry.pose.pose.orientation = t.transform.rotation;
         pubImuOdometry->publish(laserOdometry);
+
+//        std::cout << "\nTRANSFORM FUSION" << std::endl;
+//        std::cout << "laserOdometry.pose.pose.position.x: " << laserOdometry.pose.pose.position.x << std::endl;
+//        std::cout << "laserOdometry.pose.pose.position.y: " << laserOdometry.pose.pose.position.y << std::endl;
+//        std::cout << "laserOdometry.pose.pose.position.z: " << laserOdometry.pose.pose.position.z << std::endl;
+
 
         // publish tf
         if(lidarFrame != baselinkFrame)
         {
             try
             {
-                tf2::fromMsg(tfBuffer->lookupTransform(
-                    lidarFrame, baselinkFrame, rclcpp::Time(0)), lidar2Baselink);
+              tf2::fromMsg(tfBuffer->lookupTransform(
+                               lidarFrame, baselinkFrame, rclcpp::Time(0)), lidar2Baselink);
             }
             catch (tf2::TransformException ex)
             {
@@ -202,6 +261,8 @@ public:
     gtsam::Vector3 prevVel_;
     gtsam::NavState prevState_;
     gtsam::imuBias::ConstantBias prevBias_;
+
+    double transformToLocal[3] = {66459, 43620, 42.75};
 
     gtsam::NavState prevStateOdom;
     gtsam::imuBias::ConstantBias prevBiasOdom;
@@ -285,7 +346,19 @@ public:
 
     void odometryHandler(const nav_msgs::msg::Odometry::SharedPtr odomMsg)
     {
-        std::lock_guard<std::mutex> lock(mtx);
+
+//        std::lock_guard<std::mutex> lock(mtx);
+
+        double position_difference = std::sqrt(
+            std::pow(odomMsg->pose.pose.position.x - transformToLocal[0], 2) +
+            std::pow(odomMsg->pose.pose.position.y - transformToLocal[1], 2) +
+            std::pow(odomMsg->pose.pose.position.z - transformToLocal[2], 2));
+
+        if (position_difference > 25) {
+          transformToLocal[0] = odomMsg->pose.pose.position.x;
+          transformToLocal[1] = odomMsg->pose.pose.position.y;
+          transformToLocal[2] = odomMsg->pose.pose.position.z;
+        }
 
         double currentCorrectionTime = stamp2Sec(odomMsg->header.stamp);
 
@@ -293,9 +366,9 @@ public:
         if (imuQueOpt.empty())
             return;
 
-        float p_x = odomMsg->pose.pose.position.x;
-        float p_y = odomMsg->pose.pose.position.y;
-        float p_z = odomMsg->pose.pose.position.z;
+        float p_x = odomMsg->pose.pose.position.x - transformToLocal[0];
+        float p_y = odomMsg->pose.pose.position.y - transformToLocal[1];
+        float p_z = odomMsg->pose.pose.position.z - transformToLocal[2];
         float r_x = odomMsg->pose.pose.orientation.x;
         float r_y = odomMsg->pose.pose.orientation.y;
         float r_z = odomMsg->pose.pose.orientation.z;
@@ -491,9 +564,29 @@ public:
 
     void imuHandler(const sensor_msgs::msg::Imu::SharedPtr imu_raw)
     {
-        std::lock_guard<std::mutex> lock(mtx);
+//        std::lock_guard<std::mutex> lock(mtx);
 
-        sensor_msgs::msg::Imu thisImu = imuConverter(*imu_raw);
+        sensor_msgs::msg::Imu imu_;
+        imu_.header = imu_raw->header;
+        imu_.linear_acceleration_covariance = imu_raw->linear_acceleration_covariance;
+        imu_.angular_velocity_covariance = imu_raw->angular_velocity_covariance;
+        imu_.orientation_covariance = imu_raw->orientation_covariance;
+
+        imu_.orientation.x = imu_raw->orientation.x;
+        imu_.orientation.y = imu_raw->orientation.x;
+        imu_.orientation.z = imu_raw->orientation.z;
+        imu_.orientation.w = imu_raw->orientation.w;
+
+        imu_.linear_acceleration.x = imu_raw->linear_acceleration.x;
+        imu_.linear_acceleration.y = -imu_raw->linear_acceleration.y;
+        imu_.linear_acceleration.z = -imu_raw->linear_acceleration.z;
+
+        imu_.angular_velocity.x = imu_raw->angular_velocity.x;
+        imu_.angular_velocity.y = -imu_raw->angular_velocity.y;
+        imu_.angular_velocity.z = -imu_raw->angular_velocity.z;
+
+        sensor_msgs::msg::Imu thisImu = imuConverter(imu_);
+//        sensor_msgs::msg::Imu thisImu = imuConverter(*imu_raw);
 
         imuQueOpt.push_back(thisImu);
         imuQueImu.push_back(thisImu);
@@ -522,9 +615,9 @@ public:
         gtsam::Pose3 imuPose = gtsam::Pose3(currentState.quaternion(), currentState.position());
         gtsam::Pose3 lidarPose = imuPose.compose(imu2Lidar);
 
-        odometry.pose.pose.position.x = lidarPose.translation().x();
-        odometry.pose.pose.position.y = lidarPose.translation().y();
-        odometry.pose.pose.position.z = lidarPose.translation().z();
+        odometry.pose.pose.position.x = lidarPose.translation().x() + transformToLocal[0];
+        odometry.pose.pose.position.y = lidarPose.translation().y() + transformToLocal[1];
+        odometry.pose.pose.position.z = lidarPose.translation().z() + transformToLocal[2];
         odometry.pose.pose.orientation.x = lidarPose.rotation().toQuaternion().x();
         odometry.pose.pose.orientation.y = lidarPose.rotation().toQuaternion().y();
         odometry.pose.pose.orientation.z = lidarPose.rotation().toQuaternion().z();
@@ -537,6 +630,12 @@ public:
         odometry.twist.twist.angular.y = thisImu.angular_velocity.y + prevBiasOdom.gyroscope().y();
         odometry.twist.twist.angular.z = thisImu.angular_velocity.z + prevBiasOdom.gyroscope().z();
         pubImuOdometry->publish(odometry);
+
+
+//        std::cout << "\nIMU PREINTEGRATION" << std::endl;
+//        std::cout << "odometry.pose.pose.position.x: " << odometry.pose.pose.position.x << std::endl;
+//        std::cout << "odometry.pose.pose.position.y: " << odometry.pose.pose.position.y << std::endl;
+//        std::cout << "odometry.pose.pose.position.z: " << odometry.pose.pose.position.z << std::endl;
     }
 };
 
