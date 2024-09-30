@@ -99,16 +99,16 @@ public:
           first_lidar_frame_flag = false;
         }
 
-        double position_difference = std::sqrt(
-            std::pow(odomMsg->pose.pose.position.x - transformToLocal[0], 2) +
-            std::pow(odomMsg->pose.pose.position.y - transformToLocal[1], 2) +
-            std::pow(odomMsg->pose.pose.position.z - transformToLocal[2], 2));
+//        double position_difference = std::sqrt(
+//            std::pow(odomMsg->pose.pose.position.x - transformToLocal[0], 2) +
+//            std::pow(odomMsg->pose.pose.position.y - transformToLocal[1], 2) +
+//            std::pow(odomMsg->pose.pose.position.z - transformToLocal[2], 2));
 
-        if (position_difference > 25) {
-          transformToLocal[0] = odomMsg->pose.pose.position.x;
-          transformToLocal[1] = odomMsg->pose.pose.position.y;
-          transformToLocal[2] = odomMsg->pose.pose.position.z;
-        }
+//        if (position_difference > 25) {
+//          transformToLocal[0] = odomMsg->pose.pose.position.x;
+//          transformToLocal[1] = odomMsg->pose.pose.position.y;
+//          transformToLocal[2] = odomMsg->pose.pose.position.z;
+//        }
 
         auto odomLocal = odomMsg;
         odomLocal->pose.pose.position.x = odomMsg->pose.pose.position.x - transformToLocal[0];
@@ -141,6 +141,18 @@ public:
         odomLocal->pose.pose.position.y = odomMsg->pose.pose.position.y - transformToLocal[1];
         odomLocal->pose.pose.position.z = odomMsg->pose.pose.position.z - transformToLocal[2];
 
+
+//        double position_difference = std::sqrt(
+//            std::pow(odomLocal->pose.pose.position.x, 2) +
+//            std::pow(odomLocal->pose.pose.position.y, 2) +
+//            std::pow(odomLocal->pose.pose.position.z, 2));
+//
+//        if (position_difference > 25) {
+//          transformToLocal[0] = odomLocal->pose.pose.position.x + transformToLocal[0];
+//          transformToLocal[1] = odomLocal->pose.pose.position.y + transformToLocal[1];
+//          transformToLocal[2] = odomLocal->pose.pose.position.z + transformToLocal[2];
+//        }
+
         imuOdomQueue.push_back(*odomLocal);
 
         // get latest odometry (at current IMU stamp)
@@ -159,22 +171,26 @@ public:
         Eigen::Isometry3d imuOdomAffineIncre = imuOdomAffineFront.inverse() * imuOdomAffineBack;
         Eigen::Isometry3d imuOdomAffineLast = lidarOdomAffine * imuOdomAffineIncre;
         auto t = tf2::eigenToTransform(imuOdomAffineLast);
+        auto t_back = tf2::eigenToTransform(imuOdomAffineBack);
 
-        // IT IS 0. MUSTN'T BE
-        std::cout << "\nimuOdomQueue.back().x: " << imuOdomQueue.back().pose.pose.position.x << std::endl;
-        std::cout << "imuOdomQueue.back().y: " << imuOdomQueue.back().pose.pose.position.y << std::endl;
-        std::cout << "imuOdomQueue.back().z: " << imuOdomQueue.back().pose.pose.position.z << std::endl;
+//        // IT IS 0. MUSTN'T BE
+//        std::cout << "\nimuOdomQueue.back().x: " << imuOdomQueue.back().pose.pose.position.x <<
+//            "\tglobal: " << imuOdomQueue.back().pose.pose.position.x + transformToLocal[0] << std::endl;
+//        std::cout << "imuOdomQueue.back().y: " << imuOdomQueue.back().pose.pose.position.y <<
+//            "\tglobal: " << imuOdomQueue.back().pose.pose.position.y + transformToLocal[1] << std::endl;
+//        std::cout << "imuOdomQueue.back().z: " << imuOdomQueue.back().pose.pose.position.z <<
+//            "\tglobal: " << imuOdomQueue.back().pose.pose.position.z + transformToLocal[2] << std::endl;
 
 
         tf2::Stamped<tf2::Transform> tCur;
-        tf2::convert(t, tCur);
+        tf2::convert(t_back, tCur);
 
         // publish latest odometry
         nav_msgs::msg::Odometry laserOdometry = imuOdomQueue.back();
-        laserOdometry.pose.pose.position.x = t.transform.translation.x + transformToLocal[0];
-        laserOdometry.pose.pose.position.y = t.transform.translation.y + transformToLocal[1];
-        laserOdometry.pose.pose.position.z = t.transform.translation.z + transformToLocal[2];
-        laserOdometry.pose.pose.orientation = t.transform.rotation;
+        laserOdometry.pose.pose.position.x = t_back.transform.translation.x + transformToLocal[0];
+        laserOdometry.pose.pose.position.y = t_back.transform.translation.y + transformToLocal[1];
+        laserOdometry.pose.pose.position.z = t_back.transform.translation.z + transformToLocal[2];
+        laserOdometry.pose.pose.orientation = t_back.transform.rotation;
         pubImuOdometry->publish(laserOdometry);
 
 //        std::cout << "\nTRANSFORM FUSION" << std::endl;
@@ -349,16 +365,16 @@ public:
 
 //        std::lock_guard<std::mutex> lock(mtx);
 
-        double position_difference = std::sqrt(
-            std::pow(odomMsg->pose.pose.position.x - transformToLocal[0], 2) +
-            std::pow(odomMsg->pose.pose.position.y - transformToLocal[1], 2) +
-            std::pow(odomMsg->pose.pose.position.z - transformToLocal[2], 2));
-
-        if (position_difference > 25) {
-          transformToLocal[0] = odomMsg->pose.pose.position.x;
-          transformToLocal[1] = odomMsg->pose.pose.position.y;
-          transformToLocal[2] = odomMsg->pose.pose.position.z;
-        }
+//        double position_difference = std::sqrt(
+//            std::pow(odomMsg->pose.pose.position.x - transformToLocal[0], 2) +
+//            std::pow(odomMsg->pose.pose.position.y - transformToLocal[1], 2) +
+//            std::pow(odomMsg->pose.pose.position.z - transformToLocal[2], 2));
+//
+//        if (position_difference > 25) {
+//          transformToLocal[0] = odomMsg->pose.pose.position.x;
+//          transformToLocal[1] = odomMsg->pose.pose.position.y;
+//          transformToLocal[2] = odomMsg->pose.pose.position.z;
+//        }
 
         double currentCorrectionTime = stamp2Sec(odomMsg->header.stamp);
 
