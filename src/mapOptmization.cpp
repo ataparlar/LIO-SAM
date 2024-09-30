@@ -66,6 +66,7 @@ public:
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubLaserOdometryIncremental;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubKeyPoses;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pubPath;
+  rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pubLocalTransform;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubHistoryKeyFrames;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubIcpKeyFrames;
@@ -181,6 +182,7 @@ public:
     parameters.relinearizeSkip = 1;
     isam = new ISAM2(parameters);
 
+    pubLocalTransform = create_publisher<std_msgs::msg::Float64MultiArray>("lio_sam/mapping/local_transform", 1);
     pubKeyPoses = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/trajectory", 1);
     pubLaserCloudSurround = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/cloud_surround", 1);
     pub_map_local = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_local", 1);
@@ -1168,6 +1170,13 @@ public:
 //      transformToLocal[0] = -transformTobeMapped[3] + transformToLocal[0];
 //      transformToLocal[1] = -transformTobeMapped[4] + transformToLocal[1];
 //      transformToLocal[2] = -transformTobeMapped[5] + transformToLocal[2];
+
+
+      std_msgs::msg::Float64MultiArray arr;
+      arr.data = {transformToLocal[0],
+                  transformToLocal[1],
+                  transformToLocal[2]};
+      pubLocalTransform->publish(arr);
 
       transformTobeMapped[3] = 0.0;
       transformTobeMapped[4] = 0.0;
