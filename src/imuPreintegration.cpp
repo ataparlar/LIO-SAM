@@ -45,7 +45,8 @@ public:
     std::shared_ptr<tf2_ros::TransformListener> tfListener;
     tf2::Stamped<tf2::Transform> lidar2Baselink;
 
-    double transformToLocal[3] = {66459, 43620, 42.75};
+//    double transformToLocal[3] = {66459, 43620, 42.75};
+    double transformToLocal[3] = {0.0, 0.0, 0.0};
     bool localTransformFlag = false;
 
     bool first_lidar_frame_flag = true;
@@ -278,7 +279,8 @@ public:
     gtsam::NavState prevState_;
     gtsam::imuBias::ConstantBias prevBias_;
 
-    double transformToLocal[3] = {66459, 43620, 42.75};
+//    double transformToLocal[3] = {66459, 43620, 42.75};
+    double transformToLocal[3] = {0.0, 0.0, 0.0};
 
     gtsam::NavState prevStateOdom;
     gtsam::imuBias::ConstantBias prevBiasOdom;
@@ -582,27 +584,27 @@ public:
     {
 //        std::lock_guard<std::mutex> lock(mtx);
 
-        sensor_msgs::msg::Imu imu_;
-        imu_.header = imu_raw->header;
-        imu_.linear_acceleration_covariance = imu_raw->linear_acceleration_covariance;
-        imu_.angular_velocity_covariance = imu_raw->angular_velocity_covariance;
-        imu_.orientation_covariance = imu_raw->orientation_covariance;
-
-        imu_.orientation.x = imu_raw->orientation.x;
-        imu_.orientation.y = imu_raw->orientation.x;
-        imu_.orientation.z = imu_raw->orientation.z;
-        imu_.orientation.w = imu_raw->orientation.w;
-
-        imu_.linear_acceleration.x = imu_raw->linear_acceleration.x;
-        imu_.linear_acceleration.y = -imu_raw->linear_acceleration.y;
-        imu_.linear_acceleration.z = -imu_raw->linear_acceleration.z;
-
-        imu_.angular_velocity.x = imu_raw->angular_velocity.x;
-        imu_.angular_velocity.y = -imu_raw->angular_velocity.y;
-        imu_.angular_velocity.z = -imu_raw->angular_velocity.z;
-
-        sensor_msgs::msg::Imu thisImu = imuConverter(imu_);
-//        sensor_msgs::msg::Imu thisImu = imuConverter(*imu_raw);
+//        sensor_msgs::msg::Imu imu_;
+//        imu_.header = imu_raw->header;
+//        imu_.linear_acceleration_covariance = imu_raw->linear_acceleration_covariance;
+//        imu_.angular_velocity_covariance = imu_raw->angular_velocity_covariance;
+//        imu_.orientation_covariance = imu_raw->orientation_covariance;
+//
+//        imu_.orientation.x = imu_raw->orientation.x;
+//        imu_.orientation.y = imu_raw->orientation.x;
+//        imu_.orientation.z = imu_raw->orientation.z;
+//        imu_.orientation.w = imu_raw->orientation.w;
+//
+//        imu_.linear_acceleration.x = imu_raw->linear_acceleration.x;
+//        imu_.linear_acceleration.y = -imu_raw->linear_acceleration.y;
+//        imu_.linear_acceleration.z = -imu_raw->linear_acceleration.z;
+//
+//        imu_.angular_velocity.x = imu_raw->angular_velocity.x;
+//        imu_.angular_velocity.y = -imu_raw->angular_velocity.y;
+//        imu_.angular_velocity.z = -imu_raw->angular_velocity.z;
+//
+//        sensor_msgs::msg::Imu thisImu = imuConverter(imu_);
+        sensor_msgs::msg::Imu thisImu = imuConverter(*imu_raw);
 
         imuQueOpt.push_back(thisImu);
         imuQueImu.push_back(thisImu);

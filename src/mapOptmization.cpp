@@ -331,8 +331,8 @@ public:
     map_corner_.reset(new pcl::PointCloud<PointType>());
     //        if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/bomonti_tunnel/bomonti_corner.pcd", *map_corner_) == -1)  //* load the file
 //            if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_eurasia_local/route3_eurasia_local_corner.pcd", *map_corner_) == -1)  //* load the file
-//    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_corner.pcd", *map_corner_) == -1)  //* load the file
-    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/corner/route3_corner.pcd", *map_corner_) == -1)  //* load the file
+    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_corner.pcd", *map_corner_) == -1)  //* load the file
+//    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/corner/route3_corner.pcd", *map_corner_) == -1)  //* load the file
     {
       PCL_ERROR("Couldn't read corner cloud");
       PCL_ERROR("Couldn't read corner cloud");
@@ -341,8 +341,8 @@ public:
     map_surface_.reset(new pcl::PointCloud<PointType>());
     //        if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/bomonti_tunnel/bomonti_surface.pcd", *map_surface_) == -1)  //* load the file
 //            if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_eurasia_local/route3_eurasia_local_surface.pcd", *map_surface_) == -1)  //* load the file
-//    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_surface.pcd", *map_surface_) == -1)  //* load the file
-    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/surface/route3_surface_ss05.pcd", *map_surface_) == -1)  //* load the file
+    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_surface.pcd", *map_surface_) == -1)  //* load the file
+//    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/surface/route3_surface_ss05.pcd", *map_surface_) == -1)  //* load the file
     {
       PCL_ERROR("Couldn't read surface cloud \n");
       PCL_ERROR("Couldn't read surface cloud \n");
@@ -359,42 +359,45 @@ public:
     map_surface_octree_->setInputCloud(map_surface_);
     map_surface_octree_->addPointsFromInputCloud();
 
-//    Eigen::Vector3f min_point(-80, -80, -80);
-//    Eigen::Vector3f max_point(+80, +80, +80);
-    Eigen::Vector3f min_point(66459-80, 43620-80, 42.75-80);
-    Eigen::Vector3f max_point(66459+80, 43620+80, 42.75+80);
+    Eigen::Vector3f min_point(-80, -80, -80);
+    Eigen::Vector3f max_point(+80, +80, +80);
+//    Eigen::Vector3f min_point(66459-80, 43620-80, 42.75-80);
+//    Eigen::Vector3f max_point(66459+80, 43620+80, 42.75+80);
 
     std::vector<int> point_indices_in_box_corner;
     std::vector<int> point_indices_in_box_surface;
     map_corner_octree_->boxSearch(min_point, max_point, point_indices_in_box_corner);
     map_surface_octree_->boxSearch(min_point, max_point, point_indices_in_box_surface);
 
-    transformToLocal[0] = 66459;
-    transformToLocal[1] = 43620;
-    transformToLocal[2] = 42.75;
+//    transformToLocal[0] = 66459;
+//    transformToLocal[1] = 43620;
+//    transformToLocal[2] = 42.75;
+    transformToLocal[0] = 0.0;
+    transformToLocal[1] = 0.0;
+    transformToLocal[2] = 0.0;
 
     //    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_region (new pcl::PointCloud<pcl::PointXYZ>);
     //  laser_cloud_corner_from_map_ds_.reset(new pcl::PointCloud<PointType>());
     //  laser_cloud_surface_from_map_ds_.reset(new pcl::PointCloud<PointType>());
     for (const auto &index : point_indices_in_box_corner) {
-      PointType point;
-      point.x = map_corner_->points[index].x - transformToLocal[0];
-      point.y = map_corner_->points[index].y - transformToLocal[1];
-      point.z = map_corner_->points[index].z - transformToLocal[2];
-      point.intensity = map_corner_->points[index].intensity;
-      laserCloudCornerFromMapDS->push_back(point);
-      laserCloudCornerFromMapDSVis->push_back(map_corner_->points[index]);
-      //        laserCloudCornerFromMapDS->push_back(map_corner_->points[index]);
+//      PointType point;
+//      point.x = map_corner_->points[index].x - transformToLocal[0];
+//      point.y = map_corner_->points[index].y - transformToLocal[1];
+//      point.z = map_corner_->points[index].z - transformToLocal[2];
+//      point.intensity = map_corner_->points[index].intensity;
+//      laserCloudCornerFromMapDS->push_back(point);
+//      laserCloudCornerFromMapDSVis->push_back(map_corner_->points[index]);
+              laserCloudCornerFromMapDS->push_back(map_corner_->points[index]);
     }
     for (const auto &index : point_indices_in_box_surface) {
-      PointType point;
-      point.x = map_surface_->points[index].x - transformToLocal[0];
-      point.y = map_surface_->points[index].y - transformToLocal[1];
-      point.z = map_surface_->points[index].z - transformToLocal[2];
-      point.intensity = map_surface_->points[index].intensity;
-      laserCloudSurfFromMapDS->push_back(point);
-      laserCloudSurfFromMapDSVis->push_back(map_surface_->points[index]);
-      //        laserCloudSurfFromMapDS->push_back(map_surface_->points[index]);
+//      PointType point;
+//      point.x = map_surface_->points[index].x - transformToLocal[0];
+//      point.y = map_surface_->points[index].y - transformToLocal[1];
+//      point.z = map_surface_->points[index].z - transformToLocal[2];
+//      point.intensity = map_surface_->points[index].intensity;
+//      laserCloudSurfFromMapDS->push_back(point);
+//      laserCloudSurfFromMapDSVis->push_back(map_surface_->points[index]);
+              laserCloudSurfFromMapDS->push_back(map_surface_->points[index]);
     }
     laserCloudCornerFromMapDSNum = laserCloudCornerFromMapDS->size();
     laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->size();
@@ -1098,16 +1101,16 @@ public:
       laserCloudCornerFromMapDSVis->clear();
       laserCloudSurfFromMapDSVis->clear();
 
-      transformToLocal[0] = transformTobeMapped[3] + transformToLocal[0];
-      transformToLocal[1] = transformTobeMapped[4] + transformToLocal[1];
-      transformToLocal[2] = transformTobeMapped[5] + transformToLocal[2];
+//      transformToLocal[0] = transformTobeMapped[3] + transformToLocal[0];
+//      transformToLocal[1] = transformTobeMapped[4] + transformToLocal[1];
+//      transformToLocal[2] = transformTobeMapped[5] + transformToLocal[2];
 
-      Eigen::Vector3f min_point(transformToLocal[0] - 80,
-                                transformToLocal[1] - 80,
-                                transformToLocal[2] - 80);
-      Eigen::Vector3f max_point(transformToLocal[0] + 80,
-                                transformToLocal[1] + 80,
-                                transformToLocal[2] + 80);
+      Eigen::Vector3f min_point(transformTobeMapped[3] - 80,
+                                transformTobeMapped[4] - 80,
+                                transformTobeMapped[5] - 80);
+      Eigen::Vector3f max_point(transformTobeMapped[3] + 80,
+                                transformTobeMapped[4] + 80,
+                                transformTobeMapped[5] + 80);
 
       std::vector<int> point_indices_in_box_corner;
       std::vector<int> point_indices_in_box_surface;
@@ -1117,24 +1120,24 @@ public:
                                      point_indices_in_box_surface);
 
       for (const auto &index : point_indices_in_box_corner) {
-        PointType point;
-        point.x = map_corner_->points[index].x - transformToLocal[0];
-        point.y = map_corner_->points[index].y - transformToLocal[1];
-        point.z = map_corner_->points[index].z - transformToLocal[2];
-        point.intensity = map_corner_->points[index].intensity;
-        laserCloudCornerFromMapDS->push_back(point);
-        laserCloudCornerFromMapDSVis->push_back(map_corner_->points[index]);
-//        laserCloudCornerFromMapDS->push_back(map_corner_->points[index]);
+//        PointType point;
+//        point.x = map_corner_->points[index].x - transformToLocal[0];
+//        point.y = map_corner_->points[index].y - transformToLocal[1];
+//        point.z = map_corner_->points[index].z - transformToLocal[2];
+//        point.intensity = map_corner_->points[index].intensity;
+//        laserCloudCornerFromMapDS->push_back(point);
+//        laserCloudCornerFromMapDSVis->push_back(map_corner_->points[index]);
+        laserCloudCornerFromMapDS->push_back(map_corner_->points[index]);
       }
       for (const auto &index : point_indices_in_box_surface) {
-        PointType point;
-        point.x = map_surface_->points[index].x - transformToLocal[0];
-        point.y = map_surface_->points[index].y - transformToLocal[1];
-        point.z = map_surface_->points[index].z - transformToLocal[2];
-        point.intensity = map_surface_->points[index].intensity;
-        laserCloudSurfFromMapDS->push_back(point);
-        laserCloudSurfFromMapDSVis->push_back(map_surface_->points[index]);
-//        laserCloudSurfFromMapDS->push_back(map_surface_->points[index]);
+//        PointType point;
+//        point.x = map_surface_->points[index].x - transformToLocal[0];
+//        point.y = map_surface_->points[index].y - transformToLocal[1];
+//        point.z = map_surface_->points[index].z - transformToLocal[2];
+//        point.intensity = map_surface_->points[index].intensity;
+//        laserCloudSurfFromMapDS->push_back(point);
+//        laserCloudSurfFromMapDSVis->push_back(map_surface_->points[index]);
+        laserCloudSurfFromMapDS->push_back(map_surface_->points[index]);
       }
       laserCloudCornerFromMapDSNum = laserCloudCornerFromMapDS->size();
       laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->size();
@@ -1161,21 +1164,21 @@ public:
       pub_map_surface->publish(ros_cloud_surface);
       pub_map_local->publish(ros_cloud_local);
 
-//      transformTobeMappedOld[0] = transformTobeMapped[3];
-//      transformTobeMappedOld[1] = transformTobeMapped[4];
-//      transformTobeMappedOld[2] = transformTobeMapped[5];
+      transformTobeMappedOld[0] = transformTobeMapped[3];
+      transformTobeMappedOld[1] = transformTobeMapped[4];
+      transformTobeMappedOld[2] = transformTobeMapped[5];
 
 //      transformToLocal[0] = -transformTobeMapped[3] + transformToLocal[0];
 //      transformToLocal[1] = -transformTobeMapped[4] + transformToLocal[1];
 //      transformToLocal[2] = -transformTobeMapped[5] + transformToLocal[2];
 
-      transformTobeMapped[3] = 0.0;
-      transformTobeMapped[4] = 0.0;
-      transformTobeMapped[5] = 0.0;
+//      transformTobeMapped[3] = 0.0;
+//      transformTobeMapped[4] = 0.0;
+//      transformTobeMapped[5] = 0.0;
 
-      transformTobeMappedOld[0] = 0.0;
-      transformTobeMappedOld[1] = 0.0;
-      transformTobeMappedOld[2] = 0.0;
+//      transformTobeMappedOld[0] = 0.0;
+//      transformTobeMappedOld[1] = 0.0;
+//      transformTobeMappedOld[2] = 0.0;
 
     }
     // clear map cache if too large
