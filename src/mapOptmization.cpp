@@ -73,11 +73,8 @@ public:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubRecentKeyFrame;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubCloudRegisteredRaw;
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pubLoopConstraintEdge;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_local;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_corner;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_surface;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_clipped_corner_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_clipped_surface_;
 
   rclcpp::Service<lio_sam::srv::SaveMap>::SharedPtr srvSaveMap;
   rclcpp::Subscription<lio_sam::msg::CloudInfo>::SharedPtr subCloud;
@@ -114,9 +111,7 @@ public:
   pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMap;
   pcl::PointCloud<PointType>::Ptr laserCloudSurfFromMap;
   pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMapDS;
-  pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMapDSVis;
   pcl::PointCloud<PointType>::Ptr laserCloudSurfFromMapDS;
-  pcl::PointCloud<PointType>::Ptr laserCloudSurfFromMapDSVis;
 
   pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerFromMap;
   pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfFromMap;
@@ -134,7 +129,6 @@ public:
 
   float transformTobeMapped[6];
   float transformTobeMappedOld[3];
-  float transformToLocal[3];
 
   std::mutex mtx;
   std::mutex mtxLoopInfo;
@@ -144,8 +138,6 @@ public:
 
   pcl::PointCloud<PointType>::Ptr map_corner_;
   pcl::PointCloud<PointType>::Ptr map_surface_;
-  pcl::PointCloud<PointType>::Ptr map_corner_clipped_;
-  pcl::PointCloud<PointType>::Ptr map_surface_clipped_;
 
   pcl::KdTreeFLANN<PointType>::Ptr kdtree_corner_from_map_;
   pcl::KdTreeFLANN<PointType>::Ptr kdtree_surface_from_map_;
@@ -172,7 +164,6 @@ public:
   Eigen::Affine3f incrementalOdometryAffineBack;
 
   std::unique_ptr<tf2_ros::TransformBroadcaster> br;
-  std::unique_ptr<tf2_ros::TransformBroadcaster> br_local;
 
   mapOptimization(const rclcpp::NodeOptions & options) : ParamServer("lio_sam_mapOptimization", options)
   {
@@ -183,17 +174,13 @@ public:
 
     pubKeyPoses = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/trajectory", 1);
     pubLaserCloudSurround = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/cloud_surround", 1);
-    pub_map_local = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_local", 1);
     pub_map_corner = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_corner", 1);
-    pub_map_clipped_corner_ = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_corner_clipped", 1);
     pub_map_surface = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_surface", 1);
-    pub_map_clipped_surface_ = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_surface_clipped", 1);
     pubLaserOdometryGlobal = create_publisher<nav_msgs::msg::Odometry>("lio_sam/mapping/odometry", qos);
     pubLaserOdometryIncremental = create_publisher<nav_msgs::msg::Odometry>(
         "lio_sam/mapping/odometry_incremental", qos);
     pubPath = create_publisher<nav_msgs::msg::Path>("lio_sam/mapping/path", 1);
     br = std::make_unique<tf2_ros::TransformBroadcaster>(this);
-    br_local = std::make_unique<tf2_ros::TransformBroadcaster>(this);
 
     subCloud = create_subscription<lio_sam::msg::CloudInfo>(
         "lio_sam/feature/cloud_info", qos,
@@ -312,9 +299,7 @@ public:
     laserCloudCornerFromMap.reset(new pcl::PointCloud<PointType>());
     laserCloudSurfFromMap.reset(new pcl::PointCloud<PointType>());
     laserCloudCornerFromMapDS.reset(new pcl::PointCloud<PointType>());
-    laserCloudCornerFromMapDSVis.reset(new pcl::PointCloud<PointType>());
     laserCloudSurfFromMapDS.reset(new pcl::PointCloud<PointType>());
-    laserCloudSurfFromMapDSVis.reset(new pcl::PointCloud<PointType>());
 
     kdtreeCornerFromMap.reset(new pcl::KdTreeFLANN<PointType>());
     kdtreeSurfFromMap.reset(new pcl::KdTreeFLANN<PointType>());
@@ -329,31 +314,19 @@ public:
     matP.setZero();
 
     map_corner_.reset(new pcl::PointCloud<PointType>());
-    //        if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/bomonti_tunnel/bomonti_corner.pcd", *map_corner_) == -1)  //* load the file
-//            if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_eurasia_local/route3_eurasia_local_corner.pcd", *map_corner_) == -1)  //* load the file
     if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_corner.pcd", *map_corner_) == -1)  //* load the file
-//    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/corner/route3_corner.pcd", *map_corner_) == -1)  //* load the file
     {
-      PCL_ERROR("Couldn't read corner cloud");
-      PCL_ERROR("Couldn't read corner cloud");
       PCL_ERROR("Couldn't read corner cloud \n");
     }
     map_surface_.reset(new pcl::PointCloud<PointType>());
-    //        if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/bomonti_tunnel/bomonti_surface.pcd", *map_surface_) == -1)  //* load the file
-//            if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_eurasia_local/route3_eurasia_local_surface.pcd", *map_surface_) == -1)  //* load the file
     if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_surface.pcd", *map_surface_) == -1)  //* load the file
-//    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/surface/route3_surface_ss05.pcd", *map_surface_) == -1)  //* load the file
     {
-      PCL_ERROR("Couldn't read surface cloud \n");
-      PCL_ERROR("Couldn't read surface cloud \n");
       PCL_ERROR("Couldn't read surface cloud \n");
     }
 
     map_corner_octree_.reset(new pcl::octree::OctreePointCloudSearch<PointType>(0.2));
     map_surface_octree_.reset(new pcl::octree::OctreePointCloudSearch<PointType>(0.4));
 
-    map_corner_clipped_.reset(new pcl::PointCloud<PointType>());
-    map_surface_clipped_.reset(new pcl::PointCloud<PointType>());
     map_corner_octree_->setInputCloud(map_corner_);
     map_corner_octree_->addPointsFromInputCloud();
     map_surface_octree_->setInputCloud(map_surface_);
@@ -361,69 +334,33 @@ public:
 
     Eigen::Vector3f min_point(-80, -80, -80);
     Eigen::Vector3f max_point(+80, +80, +80);
-//    Eigen::Vector3f min_point(66459-80, 43620-80, 42.75-80);
-//    Eigen::Vector3f max_point(66459+80, 43620+80, 42.75+80);
 
     std::vector<int> point_indices_in_box_corner;
     std::vector<int> point_indices_in_box_surface;
     map_corner_octree_->boxSearch(min_point, max_point, point_indices_in_box_corner);
     map_surface_octree_->boxSearch(min_point, max_point, point_indices_in_box_surface);
 
-//    transformToLocal[0] = 66459;
-//    transformToLocal[1] = 43620;
-//    transformToLocal[2] = 42.75;
-    transformToLocal[0] = 0.0;
-    transformToLocal[1] = 0.0;
-    transformToLocal[2] = 0.0;
-
-    //    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_region (new pcl::PointCloud<pcl::PointXYZ>);
-    //  laser_cloud_corner_from_map_ds_.reset(new pcl::PointCloud<PointType>());
-    //  laser_cloud_surface_from_map_ds_.reset(new pcl::PointCloud<PointType>());
     for (const auto &index : point_indices_in_box_corner) {
-//      PointType point;
-//      point.x = map_corner_->points[index].x - transformToLocal[0];
-//      point.y = map_corner_->points[index].y - transformToLocal[1];
-//      point.z = map_corner_->points[index].z - transformToLocal[2];
-//      point.intensity = map_corner_->points[index].intensity;
-//      laserCloudCornerFromMapDS->push_back(point);
-//      laserCloudCornerFromMapDSVis->push_back(map_corner_->points[index]);
               laserCloudCornerFromMapDS->push_back(map_corner_->points[index]);
     }
     for (const auto &index : point_indices_in_box_surface) {
-//      PointType point;
-//      point.x = map_surface_->points[index].x - transformToLocal[0];
-//      point.y = map_surface_->points[index].y - transformToLocal[1];
-//      point.z = map_surface_->points[index].z - transformToLocal[2];
-//      point.intensity = map_surface_->points[index].intensity;
-//      laserCloudSurfFromMapDS->push_back(point);
-//      laserCloudSurfFromMapDSVis->push_back(map_surface_->points[index]);
               laserCloudSurfFromMapDS->push_back(map_surface_->points[index]);
     }
     laserCloudCornerFromMapDSNum = laserCloudCornerFromMapDS->size();
     laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->size();
 
-    std::cout << "ALLOCATE MEMORY - laser_cloud_corner_from_map_ds_.size: "
-              << laserCloudCornerFromMapDS->size() << std::endl;
-
     sensor_msgs::msg::PointCloud2 ros_cloud_corner;
-    pcl::toROSMsg(*laserCloudCornerFromMapDSVis, ros_cloud_corner);
-    sensor_msgs::msg::PointCloud2 ros_cloud_local;
-    pcl::toROSMsg(*laserCloudCornerFromMapDS, ros_cloud_local);
+    pcl::toROSMsg(*laserCloudCornerFromMapDS, ros_cloud_corner);
     sensor_msgs::msg::PointCloud2 ros_cloud_surface;
-    pcl::toROSMsg(*laserCloudSurfFromMapDSVis, ros_cloud_surface);
+    pcl::toROSMsg(*laserCloudSurfFromMapDS, ros_cloud_surface);
 
     ros_cloud_corner.header.frame_id = "map";
     ros_cloud_corner.header.stamp = this->get_clock()->now();
     ros_cloud_surface.header.frame_id = "map";
     ros_cloud_surface.header.stamp = this->get_clock()->now();
-    ros_cloud_local.header.frame_id = "map";
-    ros_cloud_local.header.stamp = this->get_clock()->now();
 
     pub_map_corner->publish(ros_cloud_corner);
     pub_map_surface->publish(ros_cloud_surface);
-    pub_map_local->publish(ros_cloud_local);
-
-
   }
 
   void laserCloudInfoHandler(const lio_sam::msg::CloudInfo::SharedPtr msgIn)
@@ -966,23 +903,12 @@ public:
     if (cloudInfo.imu_available == true)
     {
       Eigen::Affine3f transBack = pcl::getTransformation(0, 0, 0, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init);
-      std::cout << "lastImuTransformation:  \n" << lastImuTransformation.matrix() << std::endl;
-      std::cout << std::endl;
-
       Eigen::Affine3f transIncre = lastImuTransformation.inverse() * transBack;
-      std::cout << "transIncre:  \n" << transIncre.matrix() << std::endl;
-      std::cout << std::endl;
-
       Eigen::Affine3f transTobe = trans2Affine3f(transformTobeMapped);
       Eigen::Affine3f transFinal = transTobe * transIncre;
       pcl::getTranslationAndEulerAngles(transFinal, transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5],
                                         transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
-
       lastImuTransformation = pcl::getTransformation(0, 0, 0, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
-//      lastImuTransformation = pcl::getTransformation(-66459, -43620, -42.75, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
-
-      std::cout << "transFinal:  \n" << transFinal.matrix() << std::endl;
-
       return;
     }
   }
@@ -1013,21 +939,11 @@ public:
     kdtreeSurroundingKeyPoses->setInputCloud(cloudKeyPoses3D); // create kd-tree
     kdtreeSurroundingKeyPoses->radiusSearch(cloudKeyPoses3D->back(), (double)surroundingKeyframeSearchRadius, pointSearchInd, pointSearchSqDis);
 
-//    std::cout << "pointSearchInd: ";
     for (int i = 0; i < (int)pointSearchInd.size(); ++i)
     {
       int id = pointSearchInd[i];
       surroundingKeyPoses->push_back(cloudKeyPoses3D->points[id]);
-//      std::cout << pointSearchInd[i] << ", ";
     }
-//    std::cout << std::endl;
-
-//    std::cout << "pointSearchSqDis: ";
-    for (auto item : pointSearchSqDis) {
-//      std::cout << item << ", ";
-    }
-//    std::cout << std::endl;
-//    std::cout << std::endl;
 
     downSizeFilterSurroundingKeyPoses.setInputCloud(surroundingKeyPoses);
     downSizeFilterSurroundingKeyPoses.filter(*surroundingKeyPosesDS);
@@ -1098,12 +1014,6 @@ public:
       laserCloudSurfFromMap->clear();
       laserCloudCornerFromMapDS->clear();
       laserCloudSurfFromMapDS->clear();
-      laserCloudCornerFromMapDSVis->clear();
-      laserCloudSurfFromMapDSVis->clear();
-
-//      transformToLocal[0] = transformTobeMapped[3] + transformToLocal[0];
-//      transformToLocal[1] = transformTobeMapped[4] + transformToLocal[1];
-//      transformToLocal[2] = transformTobeMapped[5] + transformToLocal[2];
 
       Eigen::Vector3f min_point(transformTobeMapped[3] - 80,
                                 transformTobeMapped[4] - 80,
@@ -1120,66 +1030,30 @@ public:
                                      point_indices_in_box_surface);
 
       for (const auto &index : point_indices_in_box_corner) {
-//        PointType point;
-//        point.x = map_corner_->points[index].x - transformToLocal[0];
-//        point.y = map_corner_->points[index].y - transformToLocal[1];
-//        point.z = map_corner_->points[index].z - transformToLocal[2];
-//        point.intensity = map_corner_->points[index].intensity;
-//        laserCloudCornerFromMapDS->push_back(point);
-//        laserCloudCornerFromMapDSVis->push_back(map_corner_->points[index]);
         laserCloudCornerFromMapDS->push_back(map_corner_->points[index]);
       }
       for (const auto &index : point_indices_in_box_surface) {
-//        PointType point;
-//        point.x = map_surface_->points[index].x - transformToLocal[0];
-//        point.y = map_surface_->points[index].y - transformToLocal[1];
-//        point.z = map_surface_->points[index].z - transformToLocal[2];
-//        point.intensity = map_surface_->points[index].intensity;
-//        laserCloudSurfFromMapDS->push_back(point);
-//        laserCloudSurfFromMapDSVis->push_back(map_surface_->points[index]);
         laserCloudSurfFromMapDS->push_back(map_surface_->points[index]);
       }
       laserCloudCornerFromMapDSNum = laserCloudCornerFromMapDS->size();
       laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->size();
 
-      std::cout
-          << "MAP CHANGE - laser_cloud_corner_from_map_ds_.size: "
-          << laserCloudCornerFromMapDSNum << std::endl;
-
       sensor_msgs::msg::PointCloud2 ros_cloud_corner;
-      pcl::toROSMsg(*laserCloudCornerFromMapDSVis, ros_cloud_corner);
-      sensor_msgs::msg::PointCloud2 ros_cloud_local;
-      pcl::toROSMsg(*laserCloudCornerFromMapDS, ros_cloud_local);
+      pcl::toROSMsg(*laserCloudCornerFromMapDS, ros_cloud_corner);
       sensor_msgs::msg::PointCloud2 ros_cloud_surface;
-      pcl::toROSMsg(*laserCloudSurfFromMapDSVis, ros_cloud_surface);
+      pcl::toROSMsg(*laserCloudSurfFromMapDS, ros_cloud_surface);
 
       ros_cloud_corner.header.frame_id = "map";
       ros_cloud_corner.header.stamp = this->get_clock()->now();
       ros_cloud_surface.header.frame_id = "map";
       ros_cloud_surface.header.stamp = this->get_clock()->now();
-      ros_cloud_local.header.frame_id = "map";
-      ros_cloud_local.header.stamp = this->get_clock()->now();
 
       pub_map_corner->publish(ros_cloud_corner);
       pub_map_surface->publish(ros_cloud_surface);
-      pub_map_local->publish(ros_cloud_local);
 
       transformTobeMappedOld[0] = transformTobeMapped[3];
       transformTobeMappedOld[1] = transformTobeMapped[4];
       transformTobeMappedOld[2] = transformTobeMapped[5];
-
-//      transformToLocal[0] = -transformTobeMapped[3] + transformToLocal[0];
-//      transformToLocal[1] = -transformTobeMapped[4] + transformToLocal[1];
-//      transformToLocal[2] = -transformTobeMapped[5] + transformToLocal[2];
-
-//      transformTobeMapped[3] = 0.0;
-//      transformTobeMapped[4] = 0.0;
-//      transformTobeMapped[5] = 0.0;
-
-//      transformTobeMappedOld[0] = 0.0;
-//      transformTobeMappedOld[1] = 0.0;
-//      transformTobeMappedOld[2] = 0.0;
-
     }
     // clear map cache if too large
     if (laserCloudMapContainer.size() > 1000)
@@ -1552,9 +1426,7 @@ public:
         if (LMOptimization(iterCount) == true)
           break;
 
-        std::cout << "iteration count: " << iterCount << std::endl;
       }
-      std::cout << "Opt \t\t" << std::endl;
 
       transformUpdate();
     } else {
@@ -1619,10 +1491,6 @@ public:
     Eigen::Affine3f transFinal = pcl::getTransformation(transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5],
                                                         transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
     Eigen::Affine3f transBetween = transStart.inverse() * transFinal;
-
-//    std::cout << "transStart.matrix(): \n" << transBetween.matrix() << std::endl;
-//    std::cout << "transFinal.matrix(): \n" << transBetween.matrix() << std::endl;
-//    std::cout << "transBetween.matrix(): \n" << transBetween.matrix() << std::endl;
 
     float x, y, z, roll, pitch, yaw;
     pcl::getTranslationAndEulerAngles(transBetween, x, y, z, roll, pitch, yaw);
@@ -1875,9 +1743,9 @@ public:
     geometry_msgs::msg::PoseStamped pose_stamped;
     pose_stamped.header.stamp = rclcpp::Time(pose_in.time * 1e9);
     pose_stamped.header.frame_id = odometryFrame;
-    pose_stamped.pose.position.x = pose_in.x + transformToLocal[0];
-    pose_stamped.pose.position.y = pose_in.y + transformToLocal[1];
-    pose_stamped.pose.position.z = pose_in.z + transformToLocal[2];
+    pose_stamped.pose.position.x = pose_in.x;
+    pose_stamped.pose.position.y = pose_in.y;
+    pose_stamped.pose.position.z = pose_in.z;
     tf2::Quaternion q;
     q.setRPY(pose_in.roll, pose_in.pitch, pose_in.yaw);
     pose_stamped.pose.orientation.x = q.x();
@@ -1895,12 +1763,11 @@ public:
     laserOdometryROS.header.stamp = timeLaserInfoStamp;
     laserOdometryROS.header.frame_id = odometryFrame;
     laserOdometryROS.child_frame_id = "odom_mapping";
-    laserOdometryROS.pose.pose.position.x = transformTobeMapped[3] + transformToLocal[0];
-    laserOdometryROS.pose.pose.position.y = transformTobeMapped[4] + transformToLocal[1];
-    laserOdometryROS.pose.pose.position.z = transformTobeMapped[5] + transformToLocal[2];
+    laserOdometryROS.pose.pose.position.x = transformTobeMapped[3];
+    laserOdometryROS.pose.pose.position.y = transformTobeMapped[4];
+    laserOdometryROS.pose.pose.position.z = transformTobeMapped[5];
     tf2::Quaternion quat_tf;
     quat_tf.setRPY(transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
-    tf2::Quaternion quat_tf_local;
     quat_tf.setRPY(transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
     geometry_msgs::msg::Quaternion quat_msg;
     tf2::convert(quat_tf, quat_msg);
@@ -1911,21 +1778,10 @@ public:
     quat_tf.setRPY(transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
     tf2::Transform t_odom_to_lidar = tf2::Transform(
         quat_tf, tf2::Vector3(
-                     transformTobeMapped[3] + transformToLocal[0],
-                     transformTobeMapped[4] + transformToLocal[1],
-                     transformTobeMapped[5] + transformToLocal[2]));
-    quat_tf_local.setRPY(transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
-    tf2::Transform t_odom_to_lidar_local = tf2::Transform(
-        quat_tf, tf2::Vector3(
                      transformTobeMapped[3],
                      transformTobeMapped[4],
                      transformTobeMapped[5]));
     tf2::TimePoint time_point = tf2_ros::fromRclcpp(timeLaserInfoStamp);
-    geometry_msgs::msg::TransformStamped trans_odom_to_lidar_local;
-    tf2::Stamped<tf2::Transform> temp_odom_to_lidar_local(t_odom_to_lidar_local, time_point, odometryFrame);
-    tf2::convert(temp_odom_to_lidar_local, trans_odom_to_lidar_local);
-    trans_odom_to_lidar_local.child_frame_id = "lidar_link_local";
-    br_local->sendTransform(trans_odom_to_lidar_local);
     geometry_msgs::msg::TransformStamped trans_odom_to_lidar;
     tf2::Stamped<tf2::Transform> temp_odom_to_lidar(t_odom_to_lidar, time_point, odometryFrame);
     tf2::convert(temp_odom_to_lidar, trans_odom_to_lidar);
@@ -1971,9 +1827,9 @@ public:
       laserOdomIncremental.header.stamp = timeLaserInfoStamp;
       laserOdomIncremental.header.frame_id = odometryFrame;
       laserOdomIncremental.child_frame_id = "odom_mapping";
-      laserOdomIncremental.pose.pose.position.x = x + transformToLocal[0];
-      laserOdomIncremental.pose.pose.position.y = y + transformToLocal[1];
-      laserOdomIncremental.pose.pose.position.z = z + transformToLocal[2];
+      laserOdomIncremental.pose.pose.position.x = x;
+      laserOdomIncremental.pose.pose.position.y = y;
+      laserOdomIncremental.pose.pose.position.z = z;
       tf2::Quaternion quat_tf;
       quat_tf.setRPY(roll, pitch, yaw);
       geometry_msgs::msg::Quaternion quat_msg;
