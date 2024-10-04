@@ -184,27 +184,7 @@ public:
 
     void imuHandler(const sensor_msgs::msg::Imu::SharedPtr imuMsg)
     {
-      sensor_msgs::msg::Imu imu_;
-      imu_.header = imuMsg->header;
-      imu_.linear_acceleration_covariance = imuMsg->linear_acceleration_covariance;
-      imu_.angular_velocity_covariance = imuMsg->angular_velocity_covariance;
-      imu_.orientation_covariance = imuMsg->orientation_covariance;
-
-      imu_.orientation.x = imuMsg->orientation.x;
-      imu_.orientation.y = imuMsg->orientation.y;
-      imu_.orientation.z = imuMsg->orientation.z;
-      imu_.orientation.w = imuMsg->orientation.w;
-
-      imu_.linear_acceleration.x = imuMsg->linear_acceleration.x;
-      imu_.linear_acceleration.y = -imuMsg->linear_acceleration.y;
-      imu_.linear_acceleration.z = -imuMsg->linear_acceleration.z;
-
-      imu_.angular_velocity.x = imuMsg->angular_velocity.x;
-      imu_.angular_velocity.y = -imuMsg->angular_velocity.y;
-      imu_.angular_velocity.z = -imuMsg->angular_velocity.z;
-
-      sensor_msgs::msg::Imu thisImu = imuConverter(imu_);
-      //        sensor_msgs::msg::Imu thisImu = imuConverter(*imu_raw);
+        sensor_msgs::msg::Imu thisImu = imuConverter(*imuMsg);
 
         std::lock_guard<std::mutex> lock1(imuLock);
         imuQueue.push_back(thisImu);

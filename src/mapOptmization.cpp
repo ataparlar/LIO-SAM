@@ -66,7 +66,6 @@ public:
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubLaserOdometryIncremental;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubKeyPoses;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pubPath;
-  rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pubLocalTransform;
 
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubHistoryKeyFrames;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubIcpKeyFrames;
@@ -77,8 +76,6 @@ public:
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_local;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_corner;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_surface;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_clipped_corner_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_clipped_surface_;
 
   rclcpp::Service<lio_sam::srv::SaveMap>::SharedPtr srvSaveMap;
   rclcpp::Subscription<lio_sam::msg::CloudInfo>::SharedPtr subCloud;
@@ -182,14 +179,11 @@ public:
     parameters.relinearizeSkip = 1;
     isam = new ISAM2(parameters);
 
-    pubLocalTransform = create_publisher<std_msgs::msg::Float64MultiArray>("lio_sam/mapping/local_transform", 1);
     pubKeyPoses = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/trajectory", 1);
     pubLaserCloudSurround = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/cloud_surround", 1);
     pub_map_local = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_local", 1);
     pub_map_corner = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_corner", 1);
-    pub_map_clipped_corner_ = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_corner_clipped", 1);
     pub_map_surface = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_surface", 1);
-    pub_map_clipped_surface_ = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_surface_clipped", 1);
     pubLaserOdometryGlobal = create_publisher<nav_msgs::msg::Odometry>("lio_sam/mapping/odometry", qos);
     pubLaserOdometryIncremental = create_publisher<nav_msgs::msg::Odometry>(
         "lio_sam/mapping/odometry_incremental", qos);
@@ -331,23 +325,13 @@ public:
     matP.setZero();
 
     map_corner_.reset(new pcl::PointCloud<PointType>());
-    //        if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/bomonti_tunnel/bomonti_corner.pcd", *map_corner_) == -1)  //* load the file
-//            if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_eurasia_local/route3_eurasia_local_corner.pcd", *map_corner_) == -1)  //* load the file
-//    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_corner.pcd", *map_corner_) == -1)  //* load the file
     if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/corner/route3_corner.pcd", *map_corner_) == -1)  //* load the file
     {
-      PCL_ERROR("Couldn't read corner cloud");
-      PCL_ERROR("Couldn't read corner cloud");
       PCL_ERROR("Couldn't read corner cloud \n");
     }
     map_surface_.reset(new pcl::PointCloud<PointType>());
-    //        if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/bomonti_tunnel/bomonti_surface.pcd", *map_surface_) == -1)  //* load the file
-//            if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_eurasia_local/route3_eurasia_local_surface.pcd", *map_surface_) == -1)  //* load the file
-//    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_surface.pcd", *map_surface_) == -1)  //* load the file
-    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/surface/route3_surface_ss05.pcd", *map_surface_) == -1)  //* load the file
+    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3/surface/route3_surface.pcd", *map_surface_) == -1)  //* load the file
     {
-      PCL_ERROR("Couldn't read surface cloud \n");
-      PCL_ERROR("Couldn't read surface cloud \n");
       PCL_ERROR("Couldn't read surface cloud \n");
     }
 
@@ -361,8 +345,6 @@ public:
     map_surface_octree_->setInputCloud(map_surface_);
     map_surface_octree_->addPointsFromInputCloud();
 
-//    Eigen::Vector3f min_point(-80, -80, -80);
-//    Eigen::Vector3f max_point(+80, +80, +80);
     Eigen::Vector3f min_point(66459-80, 43620-80, 42.75-80);
     Eigen::Vector3f max_point(66459+80, 43620+80, 42.75+80);
 
@@ -375,9 +357,6 @@ public:
     transformToLocal[1] = 43620;
     transformToLocal[2] = 42.75;
 
-    //    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_region (new pcl::PointCloud<pcl::PointXYZ>);
-    //  laser_cloud_corner_from_map_ds_.reset(new pcl::PointCloud<PointType>());
-    //  laser_cloud_surface_from_map_ds_.reset(new pcl::PointCloud<PointType>());
     for (const auto &index : point_indices_in_box_corner) {
       PointType point;
       point.x = map_corner_->points[index].x - transformToLocal[0];
@@ -386,7 +365,6 @@ public:
       point.intensity = map_corner_->points[index].intensity;
       laserCloudCornerFromMapDS->push_back(point);
       laserCloudCornerFromMapDSVis->push_back(map_corner_->points[index]);
-      //        laserCloudCornerFromMapDS->push_back(map_corner_->points[index]);
     }
     for (const auto &index : point_indices_in_box_surface) {
       PointType point;
@@ -396,13 +374,9 @@ public:
       point.intensity = map_surface_->points[index].intensity;
       laserCloudSurfFromMapDS->push_back(point);
       laserCloudSurfFromMapDSVis->push_back(map_surface_->points[index]);
-      //        laserCloudSurfFromMapDS->push_back(map_surface_->points[index]);
     }
     laserCloudCornerFromMapDSNum = laserCloudCornerFromMapDS->size();
     laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->size();
-
-    std::cout << "ALLOCATE MEMORY - laser_cloud_corner_from_map_ds_.size: "
-              << laserCloudCornerFromMapDS->size() << std::endl;
 
     sensor_msgs::msg::PointCloud2 ros_cloud_corner;
     pcl::toROSMsg(*laserCloudCornerFromMapDSVis, ros_cloud_corner);
@@ -421,8 +395,6 @@ public:
     pub_map_corner->publish(ros_cloud_corner);
     pub_map_surface->publish(ros_cloud_surface);
     pub_map_local->publish(ros_cloud_local);
-
-
   }
 
   void laserCloudInfoHandler(const lio_sam::msg::CloudInfo::SharedPtr msgIn)
@@ -931,7 +903,6 @@ public:
         transformTobeMapped[2] = 0;
 
       lastImuTransformation = pcl::getTransformation(0, 0, 0, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
-//      lastImuTransformation = pcl::getTransformation(-66459, -43620, -42.75, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
       return;
     }
 
@@ -965,22 +936,12 @@ public:
     if (cloudInfo.imu_available == true)
     {
       Eigen::Affine3f transBack = pcl::getTransformation(0, 0, 0, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init);
-      std::cout << "lastImuTransformation:  \n" << lastImuTransformation.matrix() << std::endl;
-      std::cout << std::endl;
-
       Eigen::Affine3f transIncre = lastImuTransformation.inverse() * transBack;
-      std::cout << "transIncre:  \n" << transIncre.matrix() << std::endl;
-      std::cout << std::endl;
-
       Eigen::Affine3f transTobe = trans2Affine3f(transformTobeMapped);
       Eigen::Affine3f transFinal = transTobe * transIncre;
       pcl::getTranslationAndEulerAngles(transFinal, transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5],
                                         transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
-
       lastImuTransformation = pcl::getTransformation(0, 0, 0, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
-//      lastImuTransformation = pcl::getTransformation(-66459, -43620, -42.75, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
-
-      std::cout << "transFinal:  \n" << transFinal.matrix() << std::endl;
 
       return;
     }
@@ -1012,21 +973,11 @@ public:
     kdtreeSurroundingKeyPoses->setInputCloud(cloudKeyPoses3D); // create kd-tree
     kdtreeSurroundingKeyPoses->radiusSearch(cloudKeyPoses3D->back(), (double)surroundingKeyframeSearchRadius, pointSearchInd, pointSearchSqDis);
 
-//    std::cout << "pointSearchInd: ";
     for (int i = 0; i < (int)pointSearchInd.size(); ++i)
     {
       int id = pointSearchInd[i];
       surroundingKeyPoses->push_back(cloudKeyPoses3D->points[id]);
-//      std::cout << pointSearchInd[i] << ", ";
     }
-//    std::cout << std::endl;
-
-//    std::cout << "pointSearchSqDis: ";
-    for (auto item : pointSearchSqDis) {
-//      std::cout << item << ", ";
-    }
-//    std::cout << std::endl;
-//    std::cout << std::endl;
 
     downSizeFilterSurroundingKeyPoses.setInputCloud(surroundingKeyPoses);
     downSizeFilterSurroundingKeyPoses.filter(*surroundingKeyPosesDS);
@@ -1126,7 +1077,6 @@ public:
         point.intensity = map_corner_->points[index].intensity;
         laserCloudCornerFromMapDS->push_back(point);
         laserCloudCornerFromMapDSVis->push_back(map_corner_->points[index]);
-//        laserCloudCornerFromMapDS->push_back(map_corner_->points[index]);
       }
       for (const auto &index : point_indices_in_box_surface) {
         PointType point;
@@ -1136,14 +1086,9 @@ public:
         point.intensity = map_surface_->points[index].intensity;
         laserCloudSurfFromMapDS->push_back(point);
         laserCloudSurfFromMapDSVis->push_back(map_surface_->points[index]);
-//        laserCloudSurfFromMapDS->push_back(map_surface_->points[index]);
       }
       laserCloudCornerFromMapDSNum = laserCloudCornerFromMapDS->size();
       laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->size();
-
-      std::cout
-          << "MAP CHANGE - laser_cloud_corner_from_map_ds_.size: "
-          << laserCloudCornerFromMapDSNum << std::endl;
 
       sensor_msgs::msg::PointCloud2 ros_cloud_corner;
       pcl::toROSMsg(*laserCloudCornerFromMapDSVis, ros_cloud_corner);
@@ -1162,21 +1107,6 @@ public:
       pub_map_corner->publish(ros_cloud_corner);
       pub_map_surface->publish(ros_cloud_surface);
       pub_map_local->publish(ros_cloud_local);
-
-//      transformTobeMappedOld[0] = transformTobeMapped[3];
-//      transformTobeMappedOld[1] = transformTobeMapped[4];
-//      transformTobeMappedOld[2] = transformTobeMapped[5];
-
-//      transformToLocal[0] = -transformTobeMapped[3] + transformToLocal[0];
-//      transformToLocal[1] = -transformTobeMapped[4] + transformToLocal[1];
-//      transformToLocal[2] = -transformTobeMapped[5] + transformToLocal[2];
-
-
-      std_msgs::msg::Float64MultiArray arr;
-      arr.data = {transformToLocal[0],
-                  transformToLocal[1],
-                  transformToLocal[2]};
-      pubLocalTransform->publish(arr);
 
       transformTobeMapped[3] = 0.0;
       transformTobeMapped[4] = 0.0;
@@ -1557,10 +1487,7 @@ public:
 
         if (LMOptimization(iterCount) == true)
           break;
-
-        std::cout << "iteration count: " << iterCount << std::endl;
       }
-      std::cout << "Opt \t\t" << std::endl;
 
       transformUpdate();
     } else {
@@ -1625,10 +1552,6 @@ public:
     Eigen::Affine3f transFinal = pcl::getTransformation(transformTobeMapped[3], transformTobeMapped[4], transformTobeMapped[5],
                                                         transformTobeMapped[0], transformTobeMapped[1], transformTobeMapped[2]);
     Eigen::Affine3f transBetween = transStart.inverse() * transFinal;
-
-//    std::cout << "transStart.matrix(): \n" << transBetween.matrix() << std::endl;
-//    std::cout << "transFinal.matrix(): \n" << transBetween.matrix() << std::endl;
-//    std::cout << "transBetween.matrix(): \n" << transBetween.matrix() << std::endl;
 
     float x, y, z, roll, pitch, yaw;
     pcl::getTranslationAndEulerAngles(transBetween, x, y, z, roll, pitch, yaw);
