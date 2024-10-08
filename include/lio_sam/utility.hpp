@@ -75,6 +75,10 @@ public:
     string odomTopic;
     string gpsTopic;
 
+    // Point Clouds
+    string cornerPointCloudPath;
+    string surfacePointCloudPath;
+
     //Frames
     string lidarFrame;
     string baselinkFrame;
@@ -162,6 +166,11 @@ public:
         get_parameter("odomTopic", odomTopic);
         declare_parameter("gpsTopic", "lio_sam/odometry/gps");
         get_parameter("gpsTopic", gpsTopic);
+
+        declare_parameter("cornerPointCloudPath", "/");
+        get_parameter("cornerPointCloudPath", cornerPointCloudPath);
+        declare_parameter("surfacePointCloudPath", "/");
+        get_parameter("surfacePointCloudPath", surfacePointCloudPath);
 
         declare_parameter("lidarFrame", "laser_data_frame");
         get_parameter("lidarFrame", lidarFrame);

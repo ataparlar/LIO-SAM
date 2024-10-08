@@ -314,12 +314,12 @@ public:
     matP.setZero();
 
     map_corner_.reset(new pcl::PointCloud<PointType>());
-    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_corner.pcd", *map_corner_) == -1)  //* load the file
+    if (pcl::io::loadPCDFile<PointType>(cornerPointCloudPath, *map_corner_) == -1)  //* load the file
     {
       PCL_ERROR("Couldn't read corner cloud \n");
     }
     map_surface_.reset(new pcl::PointCloud<PointType>());
-    if (pcl::io::loadPCDFile<PointType>("/home/ataparlar/data/task_specific/loam_feature_localization/route3_local/route3_local_surface.pcd", *map_surface_) == -1)  //* load the file
+    if (pcl::io::loadPCDFile<PointType>(surfacePointCloudPath, *map_surface_) == -1)  //* load the file
     {
       PCL_ERROR("Couldn't read surface cloud \n");
     }
