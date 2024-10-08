@@ -29,9 +29,12 @@ find_package(PCL REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(Eigen REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(pcl_conversions REQUIRED)
 
 include_directories(
   include/lio_sam
+  ${PCL_INCLUDE_DIRS}
+  ${pcl_conversions_INCLUDE_DIRS}
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME} "msg/CloudInfo.msg" "srv/SaveMap.srv" DEPENDENCIES std_msgs sensor_msgs)
