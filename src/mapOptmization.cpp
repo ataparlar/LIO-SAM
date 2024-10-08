@@ -332,8 +332,8 @@ public:
     map_surface_octree_->setInputCloud(map_surface_);
     map_surface_octree_->addPointsFromInputCloud();
 
-    Eigen::Vector3f min_point(-80, -80, -80);
-    Eigen::Vector3f max_point(+80, +80, +80);
+    Eigen::Vector3f min_point(-1068-80, -2707-80, -0.25-80);
+    Eigen::Vector3f max_point(-1068+80, -2707+80, -0.25+80);
 
     std::vector<int> point_indices_in_box_corner;
     std::vector<int> point_indices_in_box_surface;
@@ -868,8 +868,8 @@ public:
       if (!useImuHeadingInitialization)
         transformTobeMapped[2] = 0;
 
-      lastImuTransformation = pcl::getTransformation(0, 0, 0, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
-//      lastImuTransformation = pcl::getTransformation(-66459, -43620, -42.75, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
+//      lastImuTransformation = pcl::getTransformation(0, 0, 0, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
+      lastImuTransformation = pcl::getTransformation(1068, 2707, 0.25, cloudInfo.imu_roll_init, cloudInfo.imu_pitch_init, cloudInfo.imu_yaw_init); // save imu before return;
       return;
     }
 
