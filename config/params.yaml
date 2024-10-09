@@ -8,8 +8,8 @@
 #    gpsTopic: "/applanix/lvx_client/odom"                    # GPS odometry topic from navsat, see module_navsat.launch file
 
     # Point Clouds
-    cornerPointCloudPath:  "/home/ataparlar/loam_based_localization_data/point_clouds/route3_local_corner.pcd"
-    surfacePointCloudPath: "/home/ataparlar/loam_based_localization_data/point_clouds/route3_local_surface.pcd"
+    cornerPointCloudPath:  "/home/ataparlar/loam_based_localization_data/point_clouds/tunnel_local_corner.pcd"
+    surfacePointCloudPath: "/home/ataparlar/loam_based_localization_data/point_clouds/tunnel_local_surface.pcd"
 
     # Frames
     lidarFrame: "lidar_link"

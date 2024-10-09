@@ -75,6 +75,8 @@ public:
   rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pubLoopConstraintEdge;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_corner;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_surface;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_corner_surround;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_map_surface_surround;
 
   rclcpp::Service<lio_sam::srv::SaveMap>::SharedPtr srvSaveMap;
   rclcpp::Subscription<lio_sam::msg::CloudInfo>::SharedPtr subCloud;
@@ -176,6 +178,8 @@ public:
     pubLaserCloudSurround = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/cloud_surround", 1);
     pub_map_corner = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_corner", 1);
     pub_map_surface = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_surface", 1);
+    pub_map_corner_surround = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_corner_surround", 1);
+    pub_map_surface_surround = create_publisher<sensor_msgs::msg::PointCloud2>("lio_sam/mapping/map_surface_surround", 1);
     pubLaserOdometryGlobal = create_publisher<nav_msgs::msg::Odometry>("lio_sam/mapping/odometry", qos);
     pubLaserOdometryIncremental = create_publisher<nav_msgs::msg::Odometry>(
         "lio_sam/mapping/odometry_incremental", qos);
@@ -310,7 +314,8 @@ public:
     for (int i = 0; i < 3; ++i){
       transformTobeMappedOld[i] = 0;
     }
-
+  https://drive.google.com/file/d/1OkSN53n-3BjAcU_gLzs5Il8IOFsWTnIa/view?usp=drive_link
+  https://drive.google.com/file/d/1YOSu9Bp32XgO643jNkZ7lGuSCYOcigwU/view?usp=drive_link
     matP.setZero();
 
     map_corner_.reset(new pcl::PointCloud<PointType>());
@@ -323,6 +328,24 @@ public:
     {
       PCL_ERROR("Couldn't read surface cloud \n");
     }
+
+    rclcpp::sleep_for(std::chrono::nanoseconds(2000000000));
+
+    sensor_msgs::msg::PointCloud2 ros_cloud_corner;
+    pcl::toROSMsg(*map_corner_, ros_cloud_corner);
+    sensor_msgs::msg::PointCloud2 ros_cloud_surface;
+    pcl::toROSMsg(*map_surface_, ros_cloud_surface);
+    ros_cloud_corner.header.frame_id = "map";
+    ros_cloud_corner.header.stamp = this->get_clock()->now();
+    ros_cloud_surface.header.frame_id = "map";
+    ros_cloud_surface.header.stamp = this->get_clock()->now();
+
+    pub_map_corner->publish(ros_cloud_corner);
+    pub_map_surface->publish(ros_cloud_surface);
+
+
+
+
 
     map_corner_octree_.reset(new pcl::octree::OctreePointCloudSearch<PointType>(0.2));
     map_surface_octree_.reset(new pcl::octree::OctreePointCloudSearch<PointType>(0.4));
@@ -349,9 +372,9 @@ public:
     laserCloudCornerFromMapDSNum = laserCloudCornerFromMapDS->size();
     laserCloudSurfFromMapDSNum = laserCloudSurfFromMapDS->size();
 
-    sensor_msgs::msg::PointCloud2 ros_cloud_corner;
+//    sensor_msgs::msg::PointCloud2 ros_cloud_corner;
     pcl::toROSMsg(*laserCloudCornerFromMapDS, ros_cloud_corner);
-    sensor_msgs::msg::PointCloud2 ros_cloud_surface;
+//    sensor_msgs::msg::PointCloud2 ros_cloud_surface;
     pcl::toROSMsg(*laserCloudSurfFromMapDS, ros_cloud_surface);
 
     ros_cloud_corner.header.frame_id = "map";
@@ -359,8 +382,8 @@ public:
     ros_cloud_surface.header.frame_id = "map";
     ros_cloud_surface.header.stamp = this->get_clock()->now();
 
-    pub_map_corner->publish(ros_cloud_corner);
-    pub_map_surface->publish(ros_cloud_surface);
+    pub_map_corner_surround->publish(ros_cloud_corner);
+    pub_map_surface_surround->publish(ros_cloud_surface);
   }
 
   void laserCloudInfoHandler(const lio_sam::msg::CloudInfo::SharedPtr msgIn)
@@ -1048,8 +1071,8 @@ public:
       ros_cloud_surface.header.frame_id = "map";
       ros_cloud_surface.header.stamp = this->get_clock()->now();
 
-      pub_map_corner->publish(ros_cloud_corner);
-      pub_map_surface->publish(ros_cloud_surface);
+      pub_map_corner_surround->publish(ros_cloud_corner);
+      pub_map_surface_surround->publish(ros_cloud_surface);
 
       transformTobeMappedOld[0] = transformTobeMapped[3];
       transformTobeMappedOld[1] = transformTobeMapped[4];
