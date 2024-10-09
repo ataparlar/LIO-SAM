@@ -314,8 +314,7 @@ public:
     for (int i = 0; i < 3; ++i){
       transformTobeMappedOld[i] = 0;
     }
-  https://drive.google.com/file/d/1OkSN53n-3BjAcU_gLzs5Il8IOFsWTnIa/view?usp=drive_link
-  https://drive.google.com/file/d/1YOSu9Bp32XgO643jNkZ7lGuSCYOcigwU/view?usp=drive_link
+
     matP.setZero();
 
     map_corner_.reset(new pcl::PointCloud<PointType>());
